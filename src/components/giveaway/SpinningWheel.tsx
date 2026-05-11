@@ -600,8 +600,8 @@ function ParticipantsPanel({
       <div
         className="relative overflow-hidden rounded-xl border"
         style={{
-          height: "26vh",
-          maxHeight: 280,
+          height: "22vh",
+          maxHeight: 240,
           borderColor: "color-mix(in oklab, var(--gold) 25%, transparent)",
           background: "color-mix(in oklab, var(--gold) 3%, transparent)",
           boxShadow:
