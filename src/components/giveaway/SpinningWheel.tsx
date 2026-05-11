@@ -513,6 +513,23 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
         </div>
       </div>
 
+      {/* Status chip above live-name pill */}
+      <div className="mt-3 flex justify-center">
+        <span
+          className="rounded-full px-3 py-1 font-mono text-[0.55rem] uppercase tracking-[0.3em]"
+          style={{
+            background: landed
+              ? "var(--gold)"
+              : "color-mix(in oklab, var(--gold) 18%, transparent)",
+            color: landed ? "#000" : "var(--gold)",
+          }}
+        >
+          {landed
+            ? `Winner ${spinIndex + 1}`
+            : `${Math.min(spinIndex + 1, winners.length)} / ${winners.length}`}
+        </span>
+      </div>
+
       {/* LIVE name display under the wheel — big, readable on camera */}
       <motion.div
         key={landed ? "landed" : "live"}
@@ -522,7 +539,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           scale: landed ? 1.06 : 1,
         }}
         transition={{ duration: 0.25 }}
-        className="relative mt-4 flex h-16 items-center justify-center overflow-hidden rounded-xl border px-6"
+        className="relative mt-2 flex h-14 items-center justify-center overflow-hidden rounded-xl border px-6"
         style={{
           minWidth: "min(72vw, 480px)",
           borderColor: landed
@@ -536,21 +553,6 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
             : "none",
         }}
       >
-        {/* Status chip */}
-        <span
-          className="absolute left-3 top-3 rounded-full px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-[0.25em]"
-          style={{
-            background: landed
-              ? "var(--gold)"
-              : "color-mix(in oklab, var(--gold) 18%, transparent)",
-            color: landed ? "#000" : "var(--gold)",
-          }}
-        >
-          {landed
-            ? `Winner ${spinIndex + 1}`
-            : `${Math.min(spinIndex + 1, winners.length)} / ${winners.length}`}
-        </span>
-
         <span
           className="truncate font-display text-4xl text-foreground md:text-5xl"
           style={{
