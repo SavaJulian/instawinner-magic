@@ -9,12 +9,12 @@ export function WinnerCard({
   onReset: () => void;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6 py-20">
+    <div className="flex w-full flex-col items-center justify-center px-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--gold)]/40 bg-foreground/[0.02] px-8 py-12 text-center"
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--gold)]/40 bg-foreground/[0.02] px-6 py-10 text-center"
         style={{
           boxShadow:
             "0 0 120px -20px color-mix(in oklab, var(--gold) 50%, transparent)",
@@ -34,43 +34,64 @@ export function WinnerCard({
         <img
           src={logo}
           alt="EmiModa"
-          className="mx-auto w-[50%] max-w-[320px]"
+          className="mx-auto w-[55%] max-w-[300px]"
           style={{ filter: "brightness(0) invert(1)" }}
         />
-        <div className="mt-6 font-mono text-xs uppercase tracking-[0.4em] text-foreground/50">
+        <div className="mt-5 font-mono text-[0.65rem] uppercase tracking-[0.45em] text-[var(--gold)]">
           Congratulations
         </div>
-        <h2 className="mt-2 font-display text-4xl text-foreground md:text-6xl">
+        <h2
+          className="mt-2 font-display text-4xl text-foreground md:text-5xl"
+          style={{
+            textShadow:
+              "0 0 30px color-mix(in oklab, var(--gold) 50%, transparent)",
+          }}
+        >
           Our 3 winners
         </h2>
 
-        <div className="mt-8 flex flex-col gap-3">
+        <div className="mt-7 flex flex-col gap-3">
           {winners.map((w, i) => (
             <motion.div
               key={w + i}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 + i * 0.25, duration: 0.5 }}
-              className="flex items-center justify-center gap-4 rounded-lg border border-foreground/10 bg-foreground/[0.03] px-6 py-4"
+              className="flex items-center justify-between gap-4 rounded-lg border border-[var(--gold)]/30 bg-foreground/[0.03] px-5 py-4"
+              style={{
+                boxShadow:
+                  "inset 0 0 30px -10px color-mix(in oklab, var(--gold) 40%, transparent)",
+              }}
             >
-              <span className="font-mono text-xs text-[var(--gold)]">
-                0{i + 1}
-              </span>
-              <span className="font-display text-2xl text-foreground md:text-3xl">
-                @{w}
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-[var(--gold)]">
+                  0{i + 1}
+                </span>
+                <span className="font-display text-2xl text-foreground md:text-3xl">
+                  @{w}
+                </span>
+              </div>
+              <span
+                className="rounded-md px-3 py-1 font-display text-lg"
+                style={{
+                  background: "var(--gold)",
+                  color: "#000",
+                }}
+              >
+                €100
               </span>
             </motion.div>
           ))}
         </div>
 
-        <div className="mt-10 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/40">
-          DM us to claim your prize \u00b7 EmiModa
+        <div className="mt-8 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/60">
+          DM @emimoda to claim · within 48h
         </div>
       </motion.div>
 
       <button
         onClick={onReset}
-        className="mt-10 font-mono text-xs uppercase tracking-[0.3em] text-foreground/40 transition hover:text-foreground"
+        className="mt-6 font-mono text-xs uppercase tracking-[0.3em] text-foreground/40 transition hover:text-foreground"
       >
         Reset (R)
       </button>
