@@ -12,6 +12,7 @@ type Props = {
 const SIZE = 720;
 const R = SIZE / 2;
 const RIM = 14;
+const MAX_VISIBLE_SLICES = 24;
 
 function polar(angleDeg: number, radius: number) {
   const a = ((angleDeg - 90) * Math.PI) / 180;
@@ -198,19 +199,22 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
   const audio = useSpinAudio();
   const lastSliceRef = useRef<number>(-1);
 
-  const sliceAngle = active.length > 0 ? 360 / active.length : 0;
-
-  // Decide if we show name labels on slices (only for small lists)
-  const showSliceLabels = active.length <= 24;
+  // Visual slice count is capped so the wheel never becomes thin slivers.
+  const visualCount = Math.min(active.length, MAX_VISIBLE_SLICES) || 1;
+  const sliceAngle = 360 / visualCount;
+  const isCapped = active.length > MAX_VISIBLE_SLICES;
+  const showSliceLabels = !isCapped && active.length <= MAX_VISIBLE_SLICES;
 
   const slices = useMemo(
     () =>
-      active.map((name, i) => {
+      Array.from({ length: visualCount }, (_, i) => {
         const start = i * sliceAngle;
         const end = start + sliceAngle;
+        // When not capped, each slice maps 1:1 to a name
+        const name = isCapped ? "" : active[i] ?? "";
         return { name, start, end, mid: start + sliceAngle / 2, index: i };
       }),
-    [active, sliceAngle],
+    [visualCount, sliceAngle, isCapped, active],
   );
 
   // Track which slice is under pointer and update center display + click sound
@@ -218,16 +222,21 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
     const unsub = rotation.on("change", (v) => {
       if (sliceAngle === 0) return;
       const norm = ((-v) % 360 + 360) % 360;
-      const idx = Math.floor(norm / sliceAngle) % active.length;
-      if (idx !== lastSliceRef.current) {
-        lastSliceRef.current = idx;
-        setCurrentName(active[idx]);
+      const visualIdx = Math.floor(norm / sliceAngle) % visualCount;
+      if (visualIdx !== lastSliceRef.current) {
+        lastSliceRef.current = visualIdx;
+        // Map visual slice → a name. When capped, cycle through all names so
+        // the live ticker still reflects the whole participant pool.
+        const nameIdx = isCapped
+          ? Math.floor(Math.random() * active.length)
+          : visualIdx;
+        setCurrentName(active[nameIdx] ?? "");
         const vel = Math.abs(rotation.getVelocity());
         audio.click(vel);
       }
     });
     return () => unsub();
-  }, [rotation, sliceAngle, active, audio]);
+  }, [rotation, sliceAngle, visualCount, isCapped, active, audio]);
 
   // Run spin
   useEffect(() => {
@@ -238,14 +247,18 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
     progress.set(0);
     audio.startDrone();
     const targetName = winners[spinIndex];
-    let targetIdx = active.findIndex(
+    let activeIdx = active.findIndex(
       (n) => n.toLowerCase() === targetName.toLowerCase(),
     );
-    if (targetIdx === -1) {
-      targetIdx = Math.floor(Math.random() * active.length);
+    if (activeIdx === -1) {
+      activeIdx = Math.floor(Math.random() * active.length);
     }
+    // Visual slice we'll actually land on (decorative when capped)
+    const visualTargetIdx = isCapped
+      ? Math.floor(Math.random() * visualCount)
+      : activeIdx;
 
-    const mid = targetIdx * sliceAngle + sliceAngle / 2;
+    const mid = visualTargetIdx * sliceAngle + sliceAngle / 2;
     const currentRot = rotation.get();
     const baseTurns = Math.floor(currentRot / 360) * 360;
     const jitter = (Math.random() - 0.5) * sliceAngle * 0.4;
@@ -262,11 +275,11 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
       duration,
       ease: [0.12, 0.62, 0.18, 1],
       onComplete: () => {
-        setHighlightIdx(targetIdx);
+        setHighlightIdx(visualTargetIdx);
         setLanded(true);
         audio.stopDrone();
         audio.landingChime();
-        const winnerName = active[targetIdx];
+        const winnerName = active[activeIdx];
         setCurrentName(winnerName);
         confetti({
           particleCount: 160,
@@ -294,7 +307,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
             });
             setTimeout(() => onFinished(winners), 1500);
           } else {
-            setActive((prev) => prev.filter((_, i) => i !== targetIdx));
+            setActive((prev) => prev.filter((_, i) => i !== activeIdx));
             setSpinIndex(next);
           }
         }, 2400);
@@ -366,11 +379,11 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           style={{
             width: 0,
             height: 0,
-            borderLeft: "20px solid transparent",
-            borderRight: "20px solid transparent",
-            borderTop: "36px solid var(--gold)",
+            borderLeft: "24px solid transparent",
+            borderRight: "24px solid transparent",
+            borderTop: "44px solid var(--gold)",
             filter:
-              "drop-shadow(0 4px 12px color-mix(in oklab, var(--gold) 70%, transparent))",
+              "drop-shadow(0 6px 18px color-mix(in oklab, var(--gold) 85%, transparent))",
           }}
         />
 
@@ -386,8 +399,17 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
             r={R - 3}
             fill="none"
             stroke="var(--gold)"
-            strokeWidth={4}
+            strokeWidth={6}
             opacity={0.95}
+          />
+          <circle
+            cx={R}
+            cy={R}
+            r={R - RIM - 2}
+            fill="none"
+            stroke="var(--gold)"
+            strokeWidth={1}
+            opacity={0.35}
           />
           <circle cx={R} cy={R} r={R - RIM} fill="#050505" />
 
@@ -404,10 +426,10 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
                       ? "#C9A961"
                       : s.index % 2 === 0
                         ? "#0c0c0c"
-                        : "#020202"
+                        : "color-mix(in oklab, #C9A961 14%, #050505)"
                   }
-                  stroke="color-mix(in oklab, #C9A961 35%, transparent)"
-                  strokeWidth={active.length > 60 ? 0.3 : 0.7}
+                  stroke="color-mix(in oklab, #C9A961 45%, transparent)"
+                  strokeWidth={1}
                   opacity={isHi ? 1 : 1}
                 />
               );
@@ -465,11 +487,11 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           )}
 
           {/* Hub */}
-          <circle cx={R} cy={R} r={R * 0.22} fill="#000" />
+          <circle cx={R} cy={R} r={R * 0.26} fill="#000" />
           <circle
             cx={R}
             cy={R}
-            r={R * 0.22}
+            r={R * 0.26}
             fill="none"
             stroke="var(--gold)"
             strokeWidth={2}
