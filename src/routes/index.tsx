@@ -7,6 +7,7 @@ import { IntroLogo } from "@/components/giveaway/IntroLogo";
 import { SpinningWheel } from "@/components/giveaway/SpinningWheel";
 import { WinnerCard } from "@/components/giveaway/WinnerCard";
 import { LogoWatermark } from "@/components/giveaway/LogoWatermark";
+import { StoryStage, FilmGrain } from "@/components/giveaway/StoryStage";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -67,7 +68,12 @@ function Index() {
         }}
       />
 
-      {g.phase !== "setup" && g.phase !== "intro" && <LogoWatermark />}
+      {g.phase !== "setup" && g.phase !== "intro" && (
+        <>
+          <LogoWatermark />
+          <FilmGrain />
+        </>
+      )}
 
       <AnimatePresence mode="wait">
         {g.phase === "setup" && g.loaded && (
@@ -103,8 +109,9 @@ function Index() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex min-h-screen flex-col items-center justify-center px-6 text-center"
           >
+            <StoryStage>
+              <div className="flex flex-col items-center text-center">
             <div className="font-mono text-xs uppercase tracking-[0.3em] text-foreground/50">
               Eligibility complete
             </div>
@@ -126,6 +133,8 @@ function Index() {
             <p className="mt-6 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/30">
               or press Space
             </p>
+              </div>
+            </StoryStage>
           </motion.div>
         )}
 
@@ -136,14 +145,16 @@ function Index() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <SpinningWheel
-              allNames={allNames}
-              winners={finalWinners}
-              onFinished={(w: string[]) => {
-                g.setRevealedWinners(w);
-                g.setPhase("revealed");
-              }}
-            />
+            <StoryStage>
+              <SpinningWheel
+                allNames={allNames}
+                winners={finalWinners}
+                onFinished={(w: string[]) => {
+                  g.setRevealedWinners(w);
+                  g.setPhase("revealed");
+                }}
+              />
+            </StoryStage>
           </motion.div>
         )}
 
@@ -154,14 +165,16 @@ function Index() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <WinnerCard
-              winners={g.revealedWinners}
-              onReset={() => {
-                g.reset();
-                setFinalWinners([]);
-                startedRef.current = false;
-              }}
-            />
+            <StoryStage>
+              <WinnerCard
+                winners={g.revealedWinners}
+                onReset={() => {
+                  g.reset();
+                  setFinalWinners([]);
+                  startedRef.current = false;
+                }}
+              />
+            </StoryStage>
           </motion.div>
         )}
       </AnimatePresence>
