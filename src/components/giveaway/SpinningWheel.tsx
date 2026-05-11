@@ -5,13 +5,13 @@ import logo from "@/assets/emimoda-logo.png";
 
 type Props = {
   allNames: string[];
-  winners: string[]; // forced winners, length up to 3
+  winners: string[];
   onFinished: (winners: string[]) => void;
 };
 
 const SIZE = 720;
 const R = SIZE / 2;
-const RIM = 18;
+const RIM = 14;
 
 function polar(angleDeg: number, radius: number) {
   const a = ((angleDeg - 90) * Math.PI) / 180;
@@ -25,7 +25,6 @@ function slicePath(startDeg: number, endDeg: number, outer: number) {
   return `M ${R} ${R} L ${s.x} ${s.y} A ${outer} ${outer} 0 ${large} 1 ${e.x} ${e.y} Z`;
 }
 
-// Audio tick (Web Audio)
 function useTicker() {
   const ctxRef = useRef<AudioContext | null>(null);
   const getCtx = () => {
@@ -54,52 +53,56 @@ function useTicker() {
 }
 
 export function SpinningWheel({ allNames, winners, onFinished }: Props) {
-  // Active wheel names — winners are removed after each round
   const [active, setActive] = useState<string[]>(allNames);
   const [spinIndex, setSpinIndex] = useState(0);
   const [revealed, setRevealed] = useState<string[]>([]);
   const [highlightIdx, setHighlightIdx] = useState<number | null>(null);
+  const [currentName, setCurrentName] = useState<string>(allNames[0] ?? "");
+  const [landed, setLanded] = useState(false);
   const rotation = useMotionValue(0);
   const tick = useTicker();
   const lastSliceRef = useRef<number>(-1);
 
   const sliceAngle = active.length > 0 ? 360 / active.length : 0;
 
-  // Slices with start/end angles
-  const slices = useMemo(() => {
-    return active.map((name, i) => {
-      const start = i * sliceAngle;
-      const end = start + sliceAngle;
-      return { name, start, end, mid: start + sliceAngle / 2, index: i };
-    });
-  }, [active, sliceAngle]);
+  // Decide if we show name labels on slices (only for small lists)
+  const showSliceLabels = active.length <= 24;
 
-  // Subscribe to rotation for tick sound (slice passing top pointer)
+  const slices = useMemo(
+    () =>
+      active.map((name, i) => {
+        const start = i * sliceAngle;
+        const end = start + sliceAngle;
+        return { name, start, end, mid: start + sliceAngle / 2, index: i };
+      }),
+    [active, sliceAngle],
+  );
+
+  // Track which slice is under pointer and update center display + tick sound
   useEffect(() => {
     const unsub = rotation.on("change", (v) => {
       if (sliceAngle === 0) return;
-      // pointer is at top (0deg). Slice under pointer:
       const norm = ((-v) % 360 + 360) % 360;
-      const idx = Math.floor(norm / sliceAngle);
+      const idx = Math.floor(norm / sliceAngle) % active.length;
       if (idx !== lastSliceRef.current) {
         lastSliceRef.current = idx;
-        // frequency drifts down as wheel slows — use current motion velocity proxy via getVelocity
+        setCurrentName(active[idx]);
         const vel = Math.abs(rotation.getVelocity());
-        const freq = 700 + Math.min(900, vel * 0.6);
-        const gain = vel > 50 ? 0.06 : 0.1;
+        const freq = 650 + Math.min(900, vel * 0.5);
+        const gain = vel > 80 ? 0.05 : 0.1;
         tick(freq, gain);
       }
     });
     return () => unsub();
-  }, [rotation, sliceAngle, tick]);
+  }, [rotation, sliceAngle, tick, active]);
 
-  // Run spin when spinIndex changes
+  // Run spin
   useEffect(() => {
     if (active.length === 0) return;
     if (spinIndex >= winners.length) return;
 
+    setLanded(false);
     const targetName = winners[spinIndex];
-    // Find index of target on current wheel; if missing (shouldn't happen), pick random
     let targetIdx = active.findIndex(
       (n) => n.toLowerCase() === targetName.toLowerCase(),
     );
@@ -107,60 +110,52 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
       targetIdx = Math.floor(Math.random() * active.length);
     }
 
-    // The slice spans [targetIdx*sliceAngle, +sliceAngle]. Pointer is at 0deg top.
-    // We need rotation R such that target slice mid ends up at 0deg.
-    // After rotation R: visual angle of mid = (mid + R) mod 360. Want that == 0.
-    // So R = -mid (mod 360). Add big number of full turns for suspense.
     const mid = targetIdx * sliceAngle + sliceAngle / 2;
     const currentRot = rotation.get();
-    // Reduce current rotation to its [0,360) equivalent baseline
     const baseTurns = Math.floor(currentRot / 360) * 360;
-    // tiny random jitter within slice (stay safely inside)
-    const jitter = (Math.random() - 0.5) * sliceAngle * 0.5;
-    const desired = -mid + jitter; // target final rotation mod 360
-    // Number of full rotations for suspense — more for first spin
-    const extraTurns = spinIndex === 0 ? 10 : 8;
+    const jitter = (Math.random() - 0.5) * sliceAngle * 0.4;
+    const desired = -mid + jitter;
+    const extraTurns = spinIndex === 0 ? 11 : 9;
     const finalRot = baseTurns + extraTurns * 360 + desired;
-
     const duration = spinIndex === 0 ? 13 : 11;
 
     const controls = animate(rotation, finalRot, {
       duration,
-      ease: [0.12, 0.62, 0.18, 1], // long ease-out for suspense
+      ease: [0.12, 0.62, 0.18, 1],
       onComplete: () => {
-        // celebrate
         setHighlightIdx(targetIdx);
+        setLanded(true);
         const winnerName = active[targetIdx];
+        setCurrentName(winnerName);
         confetti({
-          particleCount: 140,
-          spread: 90,
-          startVelocity: 45,
+          particleCount: 160,
+          spread: 95,
+          startVelocity: 48,
           origin: { x: 0.5, y: 0.45 },
           colors: ["#C9A961", "#F5F1EA", "#ffffff"],
-          ticks: 260,
+          ticks: 280,
         });
         setRevealed((prev) => [...prev, winnerName]);
 
         setTimeout(() => {
           setHighlightIdx(null);
+          setLanded(false);
           const next = spinIndex + 1;
           if (next >= winners.length) {
-            // finale
             confetti({
-              particleCount: 260,
+              particleCount: 280,
               spread: 130,
-              startVelocity: 55,
+              startVelocity: 60,
               origin: { x: 0.5, y: 0.5 },
               colors: ["#C9A961", "#F5F1EA", "#ffffff"],
               ticks: 320,
             });
-            setTimeout(() => onFinished(winners), 1400);
+            setTimeout(() => onFinished(winners), 1500);
           } else {
-            // Remove winner from wheel and continue
             setActive((prev) => prev.filter((_, i) => i !== targetIdx));
             setSpinIndex(next);
           }
-        }, 2200);
+        }, 2400);
       },
     });
 
@@ -169,28 +164,45 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
   }, [spinIndex, active]);
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-10">
-      <div className="mb-6 text-center">
-        <div className="font-mono text-xs uppercase tracking-[0.3em] text-foreground/50">
-          Drawing winner {Math.min(spinIndex + 1, winners.length)} of{" "}
-          {winners.length}
+    <div className="relative flex min-h-screen flex-col items-center justify-start px-4 pt-6 pb-10">
+      {/* Prize banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="mb-4 flex flex-col items-center gap-1 text-center"
+      >
+        <div className="font-mono text-[0.6rem] uppercase tracking-[0.4em] text-foreground/40">
+          EmiModa giveaway
         </div>
-        <div className="mt-1 font-display text-3xl text-foreground md:text-5xl">
-          The wheel of fate
+        <div
+          className="font-display text-4xl text-foreground md:text-5xl"
+          style={{
+            textShadow:
+              "0 0 30px color-mix(in oklab, var(--gold) 60%, transparent)",
+          }}
+        >
+          €300 prize pool
+        </div>
+        <div className="font-mono text-[0.7rem] uppercase tracking-[0.35em] text-[var(--gold)]">
+          3 winners · €100 each
+        </div>
+      </motion.div>
+
+      <div className="mb-3 text-center">
+        <div className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/50">
+          Drawing winner {Math.min(spinIndex + 1, winners.length)} of{" "}
+          {winners.length} · {active.length} entries
         </div>
       </div>
 
       <div
         className="relative"
-        style={{
-          width: "min(86vw, 620px)",
-          aspectRatio: "1 / 1",
-        }}
+        style={{ width: "min(82vw, 560px)", aspectRatio: "1 / 1" }}
       >
-        {/* Outer glow */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-[-10%]"
+          className="pointer-events-none absolute inset-[-12%]"
           style={{
             background:
               "radial-gradient(circle at center, color-mix(in oklab, var(--gold) 22%, transparent), transparent 65%)",
@@ -200,15 +212,15 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
         {/* Pointer */}
         <div
           aria-hidden
-          className="absolute left-1/2 top-[-2%] z-20 -translate-x-1/2"
+          className="absolute left-1/2 top-[-3%] z-20 -translate-x-1/2"
           style={{
             width: 0,
             height: 0,
-            borderLeft: "18px solid transparent",
-            borderRight: "18px solid transparent",
-            borderTop: "32px solid var(--gold)",
+            borderLeft: "20px solid transparent",
+            borderRight: "20px solid transparent",
+            borderTop: "36px solid var(--gold)",
             filter:
-              "drop-shadow(0 4px 10px color-mix(in oklab, var(--gold) 60%, transparent))",
+              "drop-shadow(0 4px 12px color-mix(in oklab, var(--gold) 70%, transparent))",
           }}
         />
 
@@ -217,125 +229,170 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           className="relative h-full w-full"
           style={{ rotate: rotation }}
         >
-          <defs>
-            <radialGradient id="hub" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#1a1a1a" />
-              <stop offset="100%" stopColor="#000" />
-            </radialGradient>
-          </defs>
-
-          {/* Rim */}
+          {/* Outer rim */}
           <circle
             cx={R}
             cy={R}
-            r={R - 4}
+            r={R - 3}
             fill="none"
             stroke="var(--gold)"
             strokeWidth={4}
-            opacity={0.9}
+            opacity={0.95}
           />
-          <circle
-            cx={R}
-            cy={R}
-            r={R - RIM}
-            fill="#050505"
-          />
+          <circle cx={R} cy={R} r={R - RIM} fill="#050505" />
 
           {/* Slices */}
           <g>
             {slices.map((s) => {
               const isHi = highlightIdx === s.index;
               return (
-                <g key={s.name + s.index}>
-                  <path
-                    d={slicePath(s.start, s.end, R - RIM - 2)}
-                    fill={
-                      isHi
-                        ? "color-mix(in oklab, #C9A961 45%, #000)"
-                        : s.index % 2 === 0
-                          ? "#0a0a0a"
-                          : "#000"
-                    }
-                    stroke="color-mix(in oklab, #C9A961 30%, transparent)"
-                    strokeWidth={0.6}
-                  />
-                </g>
+                <path
+                  key={"s" + s.index}
+                  d={slicePath(s.start, s.end, R - RIM - 1)}
+                  fill={
+                    isHi
+                      ? "#C9A961"
+                      : s.index % 2 === 0
+                        ? "#0c0c0c"
+                        : "#020202"
+                  }
+                  stroke="color-mix(in oklab, #C9A961 35%, transparent)"
+                  strokeWidth={active.length > 60 ? 0.3 : 0.7}
+                  opacity={isHi ? 1 : 1}
+                />
               );
             })}
           </g>
 
-          {/* Labels along radius */}
-          <g>
-            {slices.map((s) => {
-              const isHi = highlightIdx === s.index;
-              const labelR = R - RIM - 30;
-              const p = polar(s.mid, labelR);
-              const inner = polar(s.mid, R * 0.28);
-              const angle = s.mid; // 0 = top
-              // Rotate text so it reads from rim toward center
-              return (
-                <text
-                  key={"t" + s.index}
-                  x={p.x}
-                  y={p.y}
-                  fill={isHi ? "#C9A961" : "#F5F1EA"}
-                  fontFamily="'JetBrains Mono', monospace"
-                  fontSize={Math.max(10, Math.min(20, 260 / Math.max(8, active.length)))}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  opacity={isHi ? 1 : 0.78}
-                  transform={`rotate(${angle - 90} ${p.x} ${p.y})`}
-                >
-                  @{s.name.length > 18 ? s.name.slice(0, 17) + "…" : s.name}
-                </text>
-              );
-            })}
-          </g>
+          {/* Slice labels only when there are few entries */}
+          {showSliceLabels && (
+            <g>
+              {slices.map((s) => {
+                const isHi = highlightIdx === s.index;
+                const labelR = R - RIM - 28;
+                const p = polar(s.mid, labelR);
+                return (
+                  <text
+                    key={"t" + s.index}
+                    x={p.x}
+                    y={p.y}
+                    fill={isHi ? "#000" : "#F5F1EA"}
+                    fontFamily="'JetBrains Mono', monospace"
+                    fontSize={Math.max(11, Math.min(18, 280 / active.length))}
+                    fontWeight={isHi ? 700 : 400}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    opacity={isHi ? 1 : 0.85}
+                    transform={`rotate(${s.mid - 90} ${p.x} ${p.y})`}
+                  >
+                    @{s.name.length > 16 ? s.name.slice(0, 15) + "…" : s.name}
+                  </text>
+                );
+              })}
+            </g>
+          )}
+
+          {/* Decorative tick marks on rim for big lists */}
+          {!showSliceLabels && (
+            <g>
+              {slices.map((s) => {
+                const outer = polar(s.start, R - RIM - 1);
+                const inner = polar(s.start, R - RIM - 14);
+                return (
+                  <line
+                    key={"tk" + s.index}
+                    x1={outer.x}
+                    y1={outer.y}
+                    x2={inner.x}
+                    y2={inner.y}
+                    stroke="#C9A961"
+                    strokeWidth={0.6}
+                    opacity={0.6}
+                  />
+                );
+              })}
+            </g>
+          )}
 
           {/* Hub */}
-          <circle cx={R} cy={R} r={R * 0.18} fill="url(#hub)" />
+          <circle cx={R} cy={R} r={R * 0.22} fill="#000" />
           <circle
             cx={R}
             cy={R}
-            r={R * 0.18}
+            r={R * 0.22}
             fill="none"
             stroke="var(--gold)"
             strokeWidth={2}
-            opacity={0.7}
+            opacity={0.75}
           />
         </motion.svg>
 
-        {/* Center logo (counter-rotates by sitting outside the spinning svg) */}
+        {/* Center logo (does not rotate) */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <img
             src={logo}
             alt="EmiModa"
-            className="h-[14%] w-auto opacity-95"
+            className="h-[18%] w-auto opacity-95"
             style={{
               filter:
-                "drop-shadow(0 0 16px color-mix(in oklab, var(--gold) 50%, transparent))",
+                "drop-shadow(0 0 18px color-mix(in oklab, var(--gold) 55%, transparent))",
             }}
           />
         </div>
       </div>
 
-      {/* Winner cards as they're revealed */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        {revealed.map((w, i) => (
-          <motion.div
-            key={w + i}
-            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="rounded-lg border border-[var(--gold)]/40 bg-foreground/[0.04] px-5 py-3"
-          >
-            <div className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-[var(--gold)]">
-              Winner 0{i + 1}
-            </div>
-            <div className="font-display text-2xl text-foreground">@{w}</div>
-          </motion.div>
-        ))}
-      </div>
+      {/* LIVE name display under the wheel — big, readable on camera */}
+      <motion.div
+        key={landed ? "landed" : "live"}
+        initial={{ opacity: 0.6, scale: 0.98 }}
+        animate={{
+          opacity: 1,
+          scale: landed ? 1.06 : 1,
+        }}
+        transition={{ duration: 0.25 }}
+        className="mt-6 flex h-20 items-center justify-center rounded-xl border px-8"
+        style={{
+          minWidth: "min(82vw, 560px)",
+          borderColor: landed
+            ? "var(--gold)"
+            : "color-mix(in oklab, var(--gold) 25%, transparent)",
+          background: landed
+            ? "color-mix(in oklab, var(--gold) 12%, transparent)"
+            : "color-mix(in oklab, var(--gold) 4%, transparent)",
+          boxShadow: landed
+            ? "0 0 80px -10px color-mix(in oklab, var(--gold) 70%, transparent)"
+            : "none",
+        }}
+      >
+        <span
+          className="truncate font-display text-3xl text-foreground md:text-5xl"
+          style={{
+            letterSpacing: "0.01em",
+          }}
+        >
+          @{currentName}
+        </span>
+      </motion.div>
+
+      {/* Revealed winners stack */}
+      {revealed.length > 0 && (
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          {revealed.map((w, i) => (
+            <motion.div
+              key={w + i}
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="rounded-lg border border-[var(--gold)]/40 bg-foreground/[0.04] px-4 py-2"
+            >
+              <span className="mr-2 font-mono text-[0.6rem] uppercase tracking-[0.3em] text-[var(--gold)]">
+                W0{i + 1}
+              </span>
+              <span className="font-display text-xl text-foreground">@{w}</span>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
