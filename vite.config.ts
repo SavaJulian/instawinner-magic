@@ -10,6 +10,14 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
   tanstackStart: {
+    server: { entry: "server" },import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+
+export default defineConfig({
+  vite: {
+    base: "/instawinner-magic/",
+  },
+  tanstackStart: {
     server: { entry: "server" },
   },
+});  },
 });
