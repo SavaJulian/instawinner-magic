@@ -5,7 +5,7 @@ import { useGiveawayState } from "@/hooks/useGiveawayState";
 import { ParticipantEditor } from "@/components/giveaway/ParticipantEditor";
 import { IntroLogo } from "@/components/giveaway/IntroLogo";
 import { VerifyingFeed } from "@/components/giveaway/VerifyingFeed";
-import { SlotReels } from "@/components/giveaway/SlotReels";
+import { SpinningWheel } from "@/components/giveaway/SpinningWheel";
 import { WinnerCard } from "@/components/giveaway/WinnerCard";
 import { LogoWatermark } from "@/components/giveaway/LogoWatermark";
 
@@ -151,10 +151,10 @@ function Index() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <SlotReels
+            <SpinningWheel
               allNames={allNames}
               winners={finalWinners}
-              onFinished={(w) => {
+              onFinished={(w: string[]) => {
                 g.setRevealedWinners(w);
                 g.setPhase("revealed");
               }}
