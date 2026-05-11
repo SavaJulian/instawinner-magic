@@ -339,7 +339,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
 
       <div
         className="relative"
-        style={{ width: "min(78vw, 70svh, 520px)", aspectRatio: "1 / 1" }}
+        style={{ width: "min(64vw, 46svh, 420px)", aspectRatio: "1 / 1" }}
       >
         <div
           aria-hidden
