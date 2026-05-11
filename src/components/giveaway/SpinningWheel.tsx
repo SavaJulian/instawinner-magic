@@ -52,10 +52,11 @@ function useSpinAudio() {
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       noiseBufferRef.current = buf;
     }
-    if (ctxRef.current.state === "suspended") {
-      ctxRef.current.resume().catch(() => {});
+    const ctx = ctxRef.current;
+    if (ctx && ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
     }
-    return ctxRef.current;
+    return ctx;
   };
 
   const click = (velocity: number) => {
