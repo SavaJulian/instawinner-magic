@@ -31,7 +31,12 @@ export function WinnerCard({
           transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        <img src={logo} alt="EmiModa" className="mx-auto h-12 w-auto opacity-90" />
+        <img
+          src={logo}
+          alt="EmiModa"
+          className="mx-auto w-[50%] max-w-[320px]"
+          style={{ filter: "brightness(0) invert(1)" }}
+        />
         <div className="mt-6 font-mono text-xs uppercase tracking-[0.4em] text-foreground/50">
           Congratulations
         </div>
