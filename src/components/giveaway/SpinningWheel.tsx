@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useMotionValue, animate } from "framer-motion";
+import { motion, useMotionValue, animate, useTransform } from "framer-motion";
 import confetti from "canvas-confetti";
 import logo from "@/assets/emimoda-logo.png";
 
@@ -25,31 +25,154 @@ function slicePath(startDeg: number, endDeg: number, outer: number) {
   return `M ${R} ${R} L ${s.x} ${s.y} A ${outer} ${outer} 0 ${large} 1 ${e.x} ${e.y} Z`;
 }
 
-function useTicker() {
+function useSpinAudio() {
   const ctxRef = useRef<AudioContext | null>(null);
+  const masterRef = useRef<GainNode | null>(null);
+  const droneRef = useRef<{
+    stop: () => void;
+  } | null>(null);
+  const noiseBufferRef = useRef<AudioBuffer | null>(null);
+
   const getCtx = () => {
-    if (!ctxRef.current && typeof window !== "undefined") {
+    if (typeof window === "undefined") return null;
+    if (!ctxRef.current) {
       const Ctx =
         (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (Ctx) ctxRef.current = new Ctx();
+      if (!Ctx) return null;
+      const ctx = new Ctx();
+      const master = ctx.createGain();
+      master.gain.value = 0.9;
+      master.connect(ctx.destination);
+      ctxRef.current = ctx;
+      masterRef.current = master;
+
+      // Pre-build a short white-noise buffer for click bursts
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      noiseBufferRef.current = buf;
+    }
+    if (ctxRef.current.state === "suspended") {
+      ctxRef.current.resume().catch(() => {});
     }
     return ctxRef.current;
   };
-  return (freq = 1400, gain = 0.08) => {
+
+  const click = (velocity: number) => {
     const ctx = getCtx();
-    if (!ctx) return;
+    const master = masterRef.current;
+    const buf = noiseBufferRef.current;
+    if (!ctx || !master || !buf) return;
     const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
+
+    // Velocity-driven pitch: fast = bright, slow = soft and woody
+    const v = Math.min(1, velocity / 600);
+    const cutoff = 600 + v * 3200;
+
+    // Filtered noise burst — the "click"
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = cutoff;
+    bp.Q.value = 6;
     const g = ctx.createGain();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(freq, t);
+    const peak = 0.08 + v * 0.12;
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(gain, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-    osc.connect(g).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.09);
+    g.gain.linearRampToValueAtTime(peak, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    src.connect(bp).connect(g).connect(master);
+    src.start(t);
+    src.stop(t + 0.06);
+
+    // Sub-thump only while spinning fast — adds weight
+    if (v > 0.45) {
+      const osc = ctx.createOscillator();
+      const og = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(70, t);
+      osc.frequency.exponentialRampToValueAtTime(45, t + 0.05);
+      og.gain.setValueAtTime(0, t);
+      og.gain.linearRampToValueAtTime(0.07 * v, t + 0.005);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      osc.connect(og).connect(master);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    }
   };
+
+  const startDrone = () => {
+    const ctx = getCtx();
+    const master = masterRef.current;
+    if (!ctx || !master) return;
+    stopDrone();
+    const t = ctx.currentTime;
+    const o1 = ctx.createOscillator();
+    const o2 = ctx.createOscillator();
+    o1.type = "sawtooth";
+    o2.type = "sawtooth";
+    o1.frequency.value = 110;
+    o2.frequency.value = 113.5;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 420;
+    lp.Q.value = 0.7;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05, t + 1.4);
+    o1.connect(lp);
+    o2.connect(lp);
+    lp.connect(g).connect(master);
+    o1.start(t);
+    o2.start(t);
+    droneRef.current = {
+      stop: () => {
+        const nt = ctx.currentTime;
+        g.gain.cancelScheduledValues(nt);
+        g.gain.setValueAtTime(g.gain.value, nt);
+        g.gain.exponentialRampToValueAtTime(0.0001, nt + 0.6);
+        o1.stop(nt + 0.7);
+        o2.stop(nt + 0.7);
+      },
+    };
+  };
+
+  const stopDrone = () => {
+    droneRef.current?.stop();
+    droneRef.current = null;
+  };
+
+  const chime = (notes: number[], opts?: { gain?: number; spacing?: number }) => {
+    const ctx = getCtx();
+    const master = masterRef.current;
+    if (!ctx || !master) return;
+    const t0 = ctx.currentTime;
+    const spacing = opts?.spacing ?? 0.11;
+    const peakG = opts?.gain ?? 0.18;
+    notes.forEach((freq, i) => {
+      const t = t0 + i * spacing;
+      // Two-osc bell: fundamental + octave-up shimmer
+      [1, 2.01].forEach((mult, idx) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine";
+        o.frequency.setValueAtTime(freq * mult, t);
+        const peak = idx === 0 ? peakG : peakG * 0.35;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(peak, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+        o.connect(g).connect(master);
+        o.start(t);
+        o.stop(t + 1.7);
+      });
+    });
+  };
+
+  const landingChime = () => chime([659.25, 783.99, 987.77]); // E5 G5 B5
+  const finaleChime = () =>
+    chime([523.25, 659.25, 783.99, 1046.5], { gain: 0.22, spacing: 0.14 }); // C5 E5 G5 C6
+
+  return { click, startDrone, stopDrone, landingChime, finaleChime };
 }
 
 export function SpinningWheel({ allNames, winners, onFinished }: Props) {
@@ -60,7 +183,9 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
   const [currentName, setCurrentName] = useState<string>(allNames[0] ?? "");
   const [landed, setLanded] = useState(false);
   const rotation = useMotionValue(0);
-  const tick = useTicker();
+  const progress = useMotionValue(0);
+  const progressWidth = useTransform(progress, (p) => `${Math.min(100, p * 100)}%`);
+  const audio = useSpinAudio();
   const lastSliceRef = useRef<number>(-1);
 
   const sliceAngle = active.length > 0 ? 360 / active.length : 0;
@@ -78,7 +203,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
     [active, sliceAngle],
   );
 
-  // Track which slice is under pointer and update center display + tick sound
+  // Track which slice is under pointer and update center display + click sound
   useEffect(() => {
     const unsub = rotation.on("change", (v) => {
       if (sliceAngle === 0) return;
@@ -88,13 +213,11 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
         lastSliceRef.current = idx;
         setCurrentName(active[idx]);
         const vel = Math.abs(rotation.getVelocity());
-        const freq = 650 + Math.min(900, vel * 0.5);
-        const gain = vel > 80 ? 0.05 : 0.1;
-        tick(freq, gain);
+        audio.click(vel);
       }
     });
     return () => unsub();
-  }, [rotation, sliceAngle, tick, active]);
+  }, [rotation, sliceAngle, active, audio]);
 
   // Run spin
   useEffect(() => {
@@ -102,6 +225,8 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
     if (spinIndex >= winners.length) return;
 
     setLanded(false);
+    progress.set(0);
+    audio.startDrone();
     const targetName = winners[spinIndex];
     let targetIdx = active.findIndex(
       (n) => n.toLowerCase() === targetName.toLowerCase(),
@@ -119,12 +244,18 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
     const finalRot = baseTurns + extraTurns * 360 + desired;
     const duration = spinIndex === 0 ? 13 : 11;
 
+    const progressCtl = animate(progress, 1, {
+      duration,
+      ease: "linear",
+    });
     const controls = animate(rotation, finalRot, {
       duration,
       ease: [0.12, 0.62, 0.18, 1],
       onComplete: () => {
         setHighlightIdx(targetIdx);
         setLanded(true);
+        audio.stopDrone();
+        audio.landingChime();
         const winnerName = active[targetIdx];
         setCurrentName(winnerName);
         confetti({
@@ -142,6 +273,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           setLanded(false);
           const next = spinIndex + 1;
           if (next >= winners.length) {
+            audio.finaleChime();
             confetti({
               particleCount: 280,
               spread: 130,
@@ -159,12 +291,16 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
       },
     });
 
-    return () => controls.stop();
+    return () => {
+      controls.stop();
+      progressCtl.stop();
+      audio.stopDrone();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinIndex, active]);
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-start px-4 pt-6 pb-10">
+    <div className="relative flex w-full flex-col items-center justify-center">
       {/* Prize banner */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -172,33 +308,37 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
         transition={{ duration: 0.8 }}
         className="mb-4 flex flex-col items-center gap-1 text-center"
       >
-        <div className="font-mono text-[0.6rem] uppercase tracking-[0.4em] text-foreground/40">
-          EmiModa giveaway
+        <div className="flex items-center gap-2 font-mono text-[0.6rem] uppercase tracking-[0.4em] text-foreground/60">
+          <motion.span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ background: "var(--gold)" }}
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 1.4, repeat: Infinity }}
+          />
+          LIVE GIVEAWAY
         </div>
         <div
-          className="font-display text-4xl text-foreground md:text-5xl"
+          className="font-display text-6xl leading-none md:text-7xl"
           style={{
-            textShadow:
-              "0 0 30px color-mix(in oklab, var(--gold) 60%, transparent)",
+            background:
+              "linear-gradient(180deg, #FBE7A8 0%, #C9A961 55%, #8A6B2C 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            filter:
+              "drop-shadow(0 0 24px color-mix(in oklab, var(--gold) 55%, transparent))",
           }}
         >
-          €300 prize pool
+          €300
         </div>
-        <div className="font-mono text-[0.7rem] uppercase tracking-[0.35em] text-[var(--gold)]">
-          3 winners · €100 each
+        <div className="font-mono text-[0.7rem] uppercase tracking-[0.35em] text-foreground/70">
+          3 × €100 winners · {active.length} entries
         </div>
       </motion.div>
 
-      <div className="mb-3 text-center">
-        <div className="font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/50">
-          Drawing winner {Math.min(spinIndex + 1, winners.length)} of{" "}
-          {winners.length} · {active.length} entries
-        </div>
-      </div>
-
       <div
         className="relative"
-        style={{ width: "min(82vw, 560px)", aspectRatio: "1 / 1" }}
+        style={{ width: "min(78vw, 70svh, 520px)", aspectRatio: "1 / 1" }}
       >
         <div
           aria-hidden
@@ -350,9 +490,9 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           scale: landed ? 1.06 : 1,
         }}
         transition={{ duration: 0.25 }}
-        className="mt-6 flex h-20 items-center justify-center rounded-xl border px-8"
+        className="relative mt-6 flex h-20 items-center justify-center overflow-hidden rounded-xl border px-8"
         style={{
-          minWidth: "min(82vw, 560px)",
+          minWidth: "min(78vw, 520px)",
           borderColor: landed
             ? "var(--gold)"
             : "color-mix(in oklab, var(--gold) 25%, transparent)",
@@ -364,14 +504,42 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
             : "none",
         }}
       >
+        {/* Status chip */}
         <span
-          className="truncate font-display text-3xl text-foreground md:text-5xl"
+          className="absolute left-3 top-3 rounded-full px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-[0.25em]"
+          style={{
+            background: landed
+              ? "var(--gold)"
+              : "color-mix(in oklab, var(--gold) 18%, transparent)",
+            color: landed ? "#000" : "var(--gold)",
+          }}
+        >
+          {landed
+            ? `Winner 0${spinIndex + 1}`
+            : `0${Math.min(spinIndex + 1, winners.length)} / 0${winners.length}`}
+        </span>
+
+        <span
+          className="truncate font-display text-4xl text-foreground md:text-5xl"
           style={{
             letterSpacing: "0.01em",
           }}
         >
           @{currentName}
         </span>
+
+        {/* Progress bar — visual countdown for muted viewers */}
+        <motion.div
+          aria-hidden
+          className="absolute bottom-0 left-0 h-[3px]"
+          style={{
+            width: progressWidth,
+            background:
+              "linear-gradient(90deg, color-mix(in oklab, var(--gold) 40%, transparent), var(--gold))",
+            boxShadow:
+              "0 0 12px color-mix(in oklab, var(--gold) 80%, transparent)",
+          }}
+        />
       </motion.div>
 
       {/* Revealed winners stack */}
