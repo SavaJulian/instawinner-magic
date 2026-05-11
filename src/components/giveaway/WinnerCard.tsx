@@ -34,7 +34,7 @@ export function WinnerCard({
         <img
           src={logo}
           alt="EmiModa"
-          className="mx-auto w-[55%] max-w-[300px]"
+          className="mx-auto w-[70%] max-w-[360px]"
           style={{ filter: "brightness(0) invert(1)" }}
         />
         <h2
@@ -61,8 +61,11 @@ export function WinnerCard({
               }}
             >
               <div className="flex items-center gap-3">
-                <span className="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-[var(--gold)]">
-                  0{i + 1}
+                <span
+                  className="font-display text-3xl md:text-4xl text-[var(--gold)] leading-none"
+                  style={{ minWidth: "1.2em", textAlign: "center" }}
+                >
+                  {i + 1}
                 </span>
                 <span className="font-display text-2xl text-foreground md:text-3xl">
                   @{w}
