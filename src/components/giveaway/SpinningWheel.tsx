@@ -110,30 +110,39 @@ function useSpinAudio() {
     const t = ctx.currentTime;
     const o1 = ctx.createOscillator();
     const o2 = ctx.createOscillator();
-    o1.type = "sawtooth";
-    o2.type = "sawtooth";
-    o1.frequency.value = 110;
-    o2.frequency.value = 113.5;
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 420;
-    lp.Q.value = 0.7;
+    // Warm cinematic bed: two sines an octave apart, gentle bandpass shimmer
+    o1.type = "sine";
+    o2.type = "sine";
+    o1.frequency.value = 220; // A3
+    o2.frequency.value = 440; // A4
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 800;
+    bp.Q.value = 1.2;
+    // Slow LFO on the bandpass for subtle motion
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 0.25;
+    lfoGain.gain.value = 180;
+    lfo.connect(lfoGain).connect(bp.frequency);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.05, t + 1.4);
-    o1.connect(lp);
-    o2.connect(lp);
-    lp.connect(g).connect(master);
+    g.gain.exponentialRampToValueAtTime(0.03, t + 1.8);
+    o1.connect(bp);
+    o2.connect(bp);
+    bp.connect(g).connect(master);
     o1.start(t);
     o2.start(t);
+    lfo.start(t);
     droneRef.current = {
       stop: () => {
         const nt = ctx.currentTime;
         g.gain.cancelScheduledValues(nt);
         g.gain.setValueAtTime(g.gain.value, nt);
-        g.gain.exponentialRampToValueAtTime(0.0001, nt + 0.6);
-        o1.stop(nt + 0.7);
-        o2.stop(nt + 0.7);
+        g.gain.exponentialRampToValueAtTime(0.0001, nt + 0.8);
+        o1.stop(nt + 0.9);
+        o2.stop(nt + 0.9);
+        lfo.stop(nt + 0.9);
       },
     };
   };
@@ -339,7 +348,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
 
       <div
         className="relative"
-        style={{ width: "min(64vw, 46svh, 420px)", aspectRatio: "1 / 1" }}
+        style={{ width: "min(70vw, 44svh, 400px)", aspectRatio: "1 / 1" }}
       >
         <div
           aria-hidden
@@ -491,9 +500,9 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           scale: landed ? 1.06 : 1,
         }}
         transition={{ duration: 0.25 }}
-        className="relative mt-6 flex h-20 items-center justify-center overflow-hidden rounded-xl border px-8"
+        className="relative mt-4 flex h-16 items-center justify-center overflow-hidden rounded-xl border px-6"
         style={{
-          minWidth: "min(78vw, 520px)",
+          minWidth: "min(72vw, 480px)",
           borderColor: landed
             ? "var(--gold)"
             : "color-mix(in oklab, var(--gold) 25%, transparent)",
@@ -516,8 +525,8 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           }}
         >
           {landed
-            ? `Winner 0${spinIndex + 1}`
-            : `0${Math.min(spinIndex + 1, winners.length)} / 0${winners.length}`}
+            ? `Winner ${spinIndex + 1}`
+            : `${Math.min(spinIndex + 1, winners.length)} / ${winners.length}`}
         </span>
 
         <span
@@ -555,7 +564,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
               className="rounded-lg border border-[var(--gold)]/40 bg-foreground/[0.04] px-4 py-2"
             >
               <span className="mr-2 font-mono text-[0.6rem] uppercase tracking-[0.3em] text-[var(--gold)]">
-                W0{i + 1}
+                W{i + 1}
               </span>
               <span className="font-display text-xl text-foreground">@{w}</span>
             </motion.div>
