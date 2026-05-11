@@ -328,7 +328,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           LIVE GIVEAWAY
         </div>
         <div
-          className="font-display text-6xl leading-none md:text-7xl"
+          className="font-display text-5xl leading-none md:text-6xl"
           style={{
             background:
               "linear-gradient(180deg, #FBE7A8 0%, #C9A961 55%, #8A6B2C 100%)",
