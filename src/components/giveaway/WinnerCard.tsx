@@ -37,11 +37,8 @@ export function WinnerCard({
           className="mx-auto w-[55%] max-w-[300px]"
           style={{ filter: "brightness(0) invert(1)" }}
         />
-        <div className="mt-5 font-mono text-[0.65rem] uppercase tracking-[0.45em] text-[var(--gold)]">
-          Congratulations
-        </div>
         <h2
-          className="mt-2 font-display text-4xl text-foreground md:text-5xl"
+          className="mt-6 font-display text-4xl text-foreground md:text-5xl"
           style={{
             textShadow:
               "0 0 30px color-mix(in oklab, var(--gold) 50%, transparent)",
@@ -72,20 +69,18 @@ export function WinnerCard({
                 </span>
               </div>
               <span
-                className="rounded-md px-3 py-1 font-display text-lg"
+                className="rounded-lg px-5 py-2 font-display text-2xl md:text-3xl"
                 style={{
                   background: "var(--gold)",
                   color: "#000",
+                  boxShadow:
+                    "0 0 30px color-mix(in oklab, var(--gold) 70%, transparent)",
                 }}
               >
                 €100
               </span>
             </motion.div>
           ))}
-        </div>
-
-        <div className="mt-8 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-foreground/60">
-          DM @emimoda to claim · within 48h
         </div>
       </motion.div>
 
