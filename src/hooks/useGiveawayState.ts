@@ -148,6 +148,7 @@ export function useGiveawayState() {
 
   return {
     participants,
+    loaded,
     phase,
     setPhase,
     adminMode,

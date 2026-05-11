@@ -70,7 +70,7 @@ function Index() {
       {g.phase !== "setup" && g.phase !== "intro" && <LogoWatermark />}
 
       <AnimatePresence mode="wait">
-        {g.phase === "setup" && (
+        {g.phase === "setup" && g.loaded && (
           <motion.div
             key="setup"
             initial={{ opacity: 0 }}
