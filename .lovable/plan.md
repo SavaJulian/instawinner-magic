@@ -1,43 +1,68 @@
-## Switch from slot reels to a suspenseful spinning wheel
+## Better spin sound + Instagram-story-ready presentation
 
-Keep everything else (black/gold cinematic look, fake Instagram verification, pre-marked rigged winners, intro + corner watermark, screen-record friendly). Two focused changes:
+Two-part polish pass on the giveaway page. No backend changes, no new dependencies (except optional `tone` only if needed — current WebAudio approach is enough).
 
-### 1. Replace slot reels with a spinning wheel that picks 3 winners
+### 1. New spin sound design
 
-Replace `SlotReels.tsx` with a new `SpinningWheel.tsx` component.
+The current sound is a single dry triangle "tick" on every slice crossing. Replace it with a richer, more cinematic sound bed built from WebAudio synthesis (still no audio files, still zero load time).
 
-**Visuals**
-- A single large circular wheel centered on screen, filling most of the 9:16 frame.
-- Every participant gets a thin slice around the wheel with their @handle written along the radius. With many names the slices look like a fine gold-on-black "barcode" ring — already cinematic before it even moves.
-- Gold rim, subtle inner glow, soft drop shadow. A fixed gold pointer/arrow at the top (12 o'clock).
-- Center hub: black disc with the EmiModa logo (transparent PNG, letters only).
+Layered sound design inside `useTicker` (rewritten as `useSpinAudio`):
 
-**Suspense choreography (one wheel, three winners in sequence)**
-- Press Space → wheel starts spinning fast (blurred names, audible ticking as slices pass the pointer).
-- Long ramp-up: ~2s accelerate, ~4s full speed, then a slow ease-out lasting ~6–8s before it lands on Winner 1. Total ≈ 12s per winner.
-- On landing: pointer "clicks" into the slice, that slice lights up gold, a confetti burst fires, the name flies out to a "Winner 01" card on the side.
-- That winner's slice is then visually removed (collapses, the wheel re-balances) so they can't win twice.
-- Short pause (~1.5s of held tension on the winner card), then the wheel ramps up again for Winner 2, and again for Winner 3.
-- Final state: three winner cards stacked, big confetti finale, logo watermark stays in the corner the whole time.
+- **Mechanical click** — short filtered noise burst (12ms) instead of a raw triangle wave. Gives a real "wheel detent" feel instead of a beep. Pitch drifts down as the wheel slows (1200 Hz → 500 Hz mapped from velocity).
+- **Sub-thump** — very low sine (60 Hz, 40ms) layered under each click at high speed only, to add weight while the wheel is fast. Fades out as it slows so the final clicks feel delicate.
+- **Suspense drone** — a soft detuned saw pad (two oscillators ~3 Hz apart, lowpass-filtered, very low gain) that fades in when a spin starts and fades out on landing. This is the missing "tension" layer.
+- **Landing chime** — on the final slice, play a 3-note gold-bell arpeggio (E5, G5, B5 sines with short reverb-like decay via gain envelopes) instead of just confetti. Triggers exactly when the pointer locks in.
+- **Final flourish** — after winner 3, an extra brighter chime (octave up) for the finale moment.
 
-**Rigged outcome (same hidden mechanism as before)**
-- Pre-marked winners from the admin panel are still the forced result.
-- The final rotation angle is computed so the pointer lands exactly on the pre-marked slice; the long ease-out hides this completely on camera.
-- If fewer than 3 are pre-marked, the remaining picks are truly random from the remaining participants.
+All gains are kept moderate (~0.05–0.12) and master-bus through a single GainNode so a future mute toggle is one line. Sound still works after user interaction (we already gate audio behind the SPIN click, so AudioContext resumes cleanly on iOS/Safari).
 
-### 2. Logo treatment
+### 2. Instagram Story presentation polish
 
-- Replace the current square logo asset with a transparent PNG that shows only the "EmiModa" letters (no square background).
-- Use it in three places: intro draw-in, top-left corner watermark, and the center hub of the wheel.
-- Generate it via image generation with transparent background so it sits cleanly on the black wheel and corners.
+Instagram Stories are 9:16, viewed on a phone, often muted-with-captions, and the top ~14% / bottom ~20% are covered by the username header and the reply bar. Optimize for that.
 
-### Technical notes
+**Safe-zone aware layout**
+- Wrap the whole giveaway view in a 9:16 "stage" container with `padding-top: 14vh` and `padding-bottom: 20vh` (only when viewport is portrait phone-sized). All key elements — prize banner, wheel, live name, winner cards — sit inside the safe zone so nothing important is ever hidden by IG's UI.
+- Center the wheel vertically within the safe zone; reduce wheel size slightly on narrow viewports so the live-name card always fits below without scrolling.
 
-- New file `src/components/giveaway/SpinningWheel.tsx`. Drawn with SVG (slices as `<path>` arcs, labels with `<textPath>` along an arc) so the names actually curve along their slice and stay sharp at any size. Rotation animated with `framer-motion`'s `animate` on the SVG group.
-- Sequential spins handled in component state: array of forced winner indexes, current spin index, callback fires after each landing, then triggers the next spin. Slices for already-won names are filtered out between spins.
-- Ticking sound = a short WebAudio "tick" played on each slice crossing the pointer; frequency drops as the wheel slows, reinforcing the suspense. Can be muted.
-- Confetti reused from `canvas-confetti` (gold + bone white, same palette).
-- Delete `SlotReels.tsx` and update `src/routes/index.tsx` to render `SpinningWheel` in the spinning phase; also fix the existing runtime error where `ParticipantEditor` import path needs to resolve.
-- Reuse existing `WinnerCard.tsx` for the side-stacked winner reveals.
+**Stronger hero moment**
+- Intro logo: hold one extra beat (1.2s), add a subtle gold light-sweep across the letters before fading.
+- Add a one-line tagline under the logo on the intro: "Win €100 · 3 winners · Live draw" with a slow fade-in. This makes a screenshot of the very first second still tell the whole story.
 
-No backend, no schema, no new dependencies.
+**Prize banner upgrade**
+- Replace the current static text with a small animated stack:
+  - Tiny eyebrow line "LIVE GIVEAWAY" with a pulsing gold dot.
+  - Big number "€300" rendered in the display font at ~7xl with a soft gold gradient fill.
+  - Subline "3 × €100 winners".
+- Sits in the top safe zone so it's always readable in the story frame.
+
+**Live-name card upgrade**
+- Add a thin animated gold progress bar under the name card that fills as the spin progresses (driven by the same animate controller). Gives viewers a visual countdown — perfect for muted viewing.
+- Show a small `01 / 03` chip on the card during each spin, swapping to `WINNER` in gold when it locks.
+
+**Winner reveal upgrade**
+- After all 3 winners land, transition to a dedicated "podium" frame: three stacked cards centered vertically, big @handles, "€100" tag on each, big "EmiModa" wordmark above, "DM to claim within 48h" line below. This is the screenshot/repost frame.
+- Keep the corner watermark on all frames (already done).
+
+**Motion / camera polish**
+- Add a slow continuous gentle parallax glow behind the wheel (already partially there) — animate the radial gradient's position with a 12s loop so the frame never looks static even between spins.
+- Add a very subtle film-grain overlay (CSS `background-image` with an inline SVG noise filter, ~3% opacity) over the whole page. Reads as "premium" on Instagram's compression.
+
+**Typography & contrast for phone viewing**
+- Bump the live-name font size one step on narrow viewports so it stays legible when the story is viewed on a phone scrolling fast.
+- Make sure all gold text passes contrast against pure black; the current `--gold` already does, just verifying.
+
+### Technical details
+
+- Rewrite `useTicker` inside `SpinningWheel.tsx` into a `useSpinAudio()` hook that returns `{ tick, startDrone, stopDrone, landingChime, finaleChime }`. All built on a single `AudioContext` + master `GainNode`.
+- Call `startDrone()` at the top of each spin's `useEffect`, `stopDrone()` + `landingChime()` in `onComplete`, and `finaleChime()` in the final-spin branch.
+- Drive the progress bar from a `useMotionValue(0)` animated alongside the rotation (same duration), or read `rotation`'s normalized progress.
+- Safe-zone wrapper: a new `<StoryStage>` component in `src/components/giveaway/StoryStage.tsx` that applies the 9:16 padding via Tailwind classes and a CSS variable, used in `index.tsx` around all phases except `setup`.
+- Film grain: inline SVG `<feTurbulence>` filter as a `data:` URL background on a fixed full-screen `<div aria-hidden>` at z-index 0.
+- New "podium" frame replaces the current `WinnerCard` final layout — edit `WinnerCard.tsx`, no new route.
+- All colors stay on existing tokens (`--gold`, `--background`, `--foreground`). No new dependencies.
+
+### Out of scope
+
+- No real audio file imports (kept synth-based for instant load and offline).
+- No video export; user records the screen with Instagram's screen recorder as before.
+- No changes to the rigged-winner logic, participant editor, or storage.
