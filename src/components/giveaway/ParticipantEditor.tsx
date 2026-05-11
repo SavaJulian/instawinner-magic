@@ -105,7 +105,7 @@ export function ParticipantEditor({
 
       <div className="mt-6 flex items-center justify-between font-mono text-xs uppercase tracking-[0.25em] text-foreground/50">
         <span>{participants.length} participants</span>
-        <span className="text-[var(--gold)]"></span>
+        <span className="text-[var(--gold)]">{winnersChosen} / 3 starred</span>
       </div>
 
       <div className="mt-3 max-h-[40vh] overflow-y-auto rounded-xl border border-foreground/10 bg-foreground/[0.02]">
