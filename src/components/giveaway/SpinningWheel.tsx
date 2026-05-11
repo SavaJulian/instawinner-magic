@@ -341,16 +341,19 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           LIVE GIVEAWAY
         </div>
         <div
-          className="font-display text-5xl leading-none md:text-6xl"
+          className="text-5xl leading-none md:text-6xl"
           style={{
+            fontFamily:
+              '"Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif',
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
             background:
-              "linear-gradient(180deg, #FBE7A8 0%, #E8C870 45%, #C9A961 100%)",
+              "linear-gradient(180deg, #FBE7A8 0%, #C9A961 55%, #8A6B2C 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
             filter:
               "drop-shadow(0 0 24px color-mix(in oklab, var(--gold) 55%, transparent))",
-            fontWeight: 600,
           }}
         >
           €300
