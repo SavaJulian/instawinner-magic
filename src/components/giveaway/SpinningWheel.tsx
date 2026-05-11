@@ -332,10 +332,10 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           <img
             src={logo}
             alt="EmiModa"
-            className="h-[18%] w-auto opacity-95"
+            className="w-[34%] h-auto opacity-95"
             style={{
               filter:
-                "drop-shadow(0 0 18px color-mix(in oklab, var(--gold) 55%, transparent))",
+                "brightness(0) invert(1) drop-shadow(0 0 18px color-mix(in oklab, var(--gold) 55%, transparent))",
             }}
           />
         </div>

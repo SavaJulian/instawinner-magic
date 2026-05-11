@@ -20,7 +20,8 @@ export function IntroLogo({ onDone }: { onDone: () => void }) {
         }}
         transition={{ duration: 2.4, times: [0, 0.45, 0.7, 1], ease: "easeOut" }}
         onAnimationComplete={onDone}
-        className="h-44 w-auto md:h-64"
+        className="w-[80vw] max-w-[900px]"
+        style={{ filter: "brightness(0) invert(1)" }}
       />
       <motion.div
         className="pointer-events-none absolute inset-0"

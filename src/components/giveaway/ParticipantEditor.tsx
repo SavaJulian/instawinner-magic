@@ -39,7 +39,12 @@ export function ParticipantEditor({
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
       <div className="mb-10 flex flex-col items-center gap-4 text-center">
-        <img src={logo} alt="EmiModa" className="h-16 w-auto opacity-90" />
+        <img
+          src={logo}
+          alt="EmiModa"
+          className="w-[60vw] max-w-[420px]"
+          style={{ filter: "brightness(0) invert(1)" }}
+        />
         <div>
           <div className="font-mono text-xs uppercase tracking-[0.3em] text-foreground/50">
             Giveaway control room

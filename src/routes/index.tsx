@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useGiveawayState } from "@/hooks/useGiveawayState";
 import { ParticipantEditor } from "@/components/giveaway/ParticipantEditor";
 import { IntroLogo } from "@/components/giveaway/IntroLogo";
-import { VerifyingFeed } from "@/components/giveaway/VerifyingFeed";
 import { SpinningWheel } from "@/components/giveaway/SpinningWheel";
 import { WinnerCard } from "@/components/giveaway/WinnerCard";
 import { LogoWatermark } from "@/components/giveaway/LogoWatermark";
@@ -93,23 +92,9 @@ function Index() {
           <IntroLogo
             key="intro"
             onDone={() => {
-              setTimeout(() => g.setPhase("verifying"), 600);
+              setTimeout(() => g.setPhase("ready"), 500);
             }}
           />
-        )}
-
-        {g.phase === "verifying" && (
-          <motion.div
-            key="verifying"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <VerifyingFeed
-              participants={g.participants}
-              onDone={() => g.setPhase("ready")}
-            />
-          </motion.div>
         )}
 
         {g.phase === "ready" && (
