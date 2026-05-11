@@ -16,19 +16,6 @@ export type Phase =
 
 const STORAGE_KEY = "emimoda-giveaway-v1";
 
-function loadInitial(): Participant[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Participant[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed;
-  } catch {
-    return [];
-  }
-}
-
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -45,9 +32,20 @@ export function parseUsernameList(text: string): string[] {
 }
 
 export function useGiveawayState() {
-  const [participants, setParticipants] = useState<Participant[]>(() =>
-    loadInitial(),
-  );
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load from localStorage after mount to avoid SSR/hydration mismatch
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Participant[];
+        if (Array.isArray(parsed)) setParticipants(parsed);
+      }
+    } catch {}
+    setLoaded(true);
+  }, []);
   const [phase, setPhase] = useState<Phase>("setup");
   const [adminMode, setAdminMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -56,12 +54,13 @@ export function useGiveawayState() {
   });
   const [revealedWinners, setRevealedWinners] = useState<string[]>([]);
 
-  // persist
+  // persist (only after initial load to avoid wiping storage on first render)
   useEffect(() => {
+    if (!loaded) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(participants));
     } catch {}
-  }, [participants]);
+  }, [participants, loaded]);
 
   // hidden shortcut
   useEffect(() => {
