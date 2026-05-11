@@ -30,13 +30,26 @@ jobs:
         env:
           NITRO_PRESET: github-pages
 
+      - name: Determine upload path
+        id: determine-path
+        run: |
+          if [ -d ".output/public" ]; then
+            echo "path=.output/public" >> $GITHUB_OUTPUT
+          elif [ -d "dist" ]; then
+            echo "path=dist" >> $GITHUB_OUTPUT
+          else
+            echo "Could not find build output directory"
+            ls -R
+            exit 1
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './.output/public' 
+          path: ${{ steps.determine-path.outputs.path }}
 
       - name: Deploy to GitHub Pages
         id: deployment
