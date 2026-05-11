@@ -6,7 +6,6 @@ import { ParticipantEditor } from "@/components/giveaway/ParticipantEditor";
 import { IntroLogo } from "@/components/giveaway/IntroLogo";
 import { SpinningWheel } from "@/components/giveaway/SpinningWheel";
 import { WinnerCard } from "@/components/giveaway/WinnerCard";
-import { LogoWatermark } from "@/components/giveaway/LogoWatermark";
 import { StoryStage, FilmGrain } from "@/components/giveaway/StoryStage";
 
 export const Route = createFileRoute("/")({
@@ -68,12 +67,7 @@ function Index() {
         }}
       />
 
-      {g.phase !== "setup" && g.phase !== "intro" && (
-        <>
-          <LogoWatermark />
-          <FilmGrain />
-        </>
-      )}
+      {g.phase !== "setup" && g.phase !== "intro" && <FilmGrain />}
 
       <AnimatePresence mode="wait">
         {g.phase === "setup" && g.loaded && (
