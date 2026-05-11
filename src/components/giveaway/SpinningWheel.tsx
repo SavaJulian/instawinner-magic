@@ -339,7 +339,7 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
 
       <div
         className="relative"
-        style={{ width: "min(78vw, 70svh, 520px)", aspectRatio: "1 / 1" }}
+        style={{ width: "min(64vw, 46svh, 420px)", aspectRatio: "1 / 1" }}
       >
         <div
           aria-hidden
@@ -562,6 +562,96 @@ export function SpinningWheel({ allNames, winners, onFinished }: Props) {
           ))}
         </div>
       )}
+
+      {/* Participants panel — auto-scrolling list of every entry */}
+      <ParticipantsPanel names={allNames} currentName={currentName} landed={landed} />
+    </div>
+  );
+}
+
+function ParticipantsPanel({
+  names,
+  currentName,
+  landed,
+}: {
+  names: string[];
+  currentName: string;
+  landed: boolean;
+}) {
+  const duration = Math.max(30, Math.min(120, names.length * 0.7));
+  return (
+    <div
+      className="mt-5 w-full"
+      style={{ maxWidth: "min(78vw, 520px)" }}
+    >
+      <div className="mb-2 flex items-center justify-between font-mono text-[0.6rem] uppercase tracking-[0.3em] text-foreground/60">
+        <span>Participants</span>
+        <span className="text-[var(--gold)]">{names.length}</span>
+      </div>
+      <div
+        className="relative overflow-hidden rounded-xl border"
+        style={{
+          height: "26vh",
+          maxHeight: 280,
+          borderColor: "color-mix(in oklab, var(--gold) 25%, transparent)",
+          background: "color-mix(in oklab, var(--gold) 3%, transparent)",
+          boxShadow:
+            "inset 0 0 60px -20px color-mix(in oklab, var(--gold) 30%, transparent)",
+        }}
+      >
+        {/* top/bottom fade masks */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-10"
+          style={{
+            background:
+              "linear-gradient(180deg, var(--background), transparent)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-10"
+          style={{
+            background:
+              "linear-gradient(0deg, var(--background), transparent)",
+          }}
+        />
+
+        <div
+          className="pointer-events-none flex flex-col gap-1.5 px-3 py-3"
+          style={{
+            animation: `participants-scroll ${duration}s linear infinite`,
+          }}
+        >
+          {[...names, ...names].map((n, i) => {
+            const isCurrent = n === currentName;
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md px-3 py-1.5 font-mono text-sm transition-colors"
+                style={{
+                  background: isCurrent
+                    ? "var(--gold)"
+                    : "transparent",
+                  color: isCurrent ? "#000" : "rgba(245,241,234,0.65)",
+                  fontWeight: isCurrent ? 700 : 400,
+                  boxShadow: isCurrent && landed
+                    ? "0 0 24px color-mix(in oklab, var(--gold) 70%, transparent)"
+                    : "none",
+                }}
+              >
+                <span className="truncate">@{n}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <style>{`
+        @keyframes participants-scroll {
+          from { transform: translateY(0); }
+          to { transform: translateY(-50%); }
+        }
+      `}</style>
     </div>
   );
 }

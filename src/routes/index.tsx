@@ -112,10 +112,7 @@ function Index() {
           >
             <StoryStage>
               <div className="flex flex-col items-center text-center">
-            <div className="font-mono text-xs uppercase tracking-[0.3em] text-foreground/50">
-              Eligibility complete
-            </div>
-            <h2 className="mt-3 font-display text-5xl text-foreground md:text-7xl">
+            <h2 className="font-display text-5xl text-foreground md:text-7xl">
               Ready to draw
             </h2>
             <motion.button
